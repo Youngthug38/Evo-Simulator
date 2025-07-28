@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Evolution Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'VT323', monospace;
+            transition: background-color 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+        
+        .background-container {
+            position: fixed;
+            top: 0; left: 0; width: 100%;
+            height: 100%; z-index: -1;
+        }
+
+        .pokeball-bg {
+            position: absolute;
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            border: 2px solid #000;
+            opacity: 0;
+            animation: float 25s infinite linear;
+        }
+        .pokeball-bg::after {
+            content: ''; position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px; height: 12px;
+            background: #fff; border-radius: 50%;
+            border: 2px solid #000;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(110vh) rotate(0deg); opacity: 0.1; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0.1; }
+        }
+
+        .main-container {
+            border: 4px solid #000;
+            border-radius: 1rem; padding: 1rem;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .poke-input {
+            border: 2px solid #000;
+            border-radius: 0; font-size: 1.5rem;
+            padding: 0.75rem;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        .poke-input:focus { outline: none; box-shadow: 0 0 0 3px #000; }
+
+        .action-button {
+            font-family: 'Press Start 2P', cursive;
+            color: white; border: 2px solid #000;
+            border-radius: 8px; padding: 0.75rem 0.5rem;
+            font-size: 0.65rem; line-height: 1.2;
+            text-align: center; text-transform: uppercase;
+            transition: all 0.1s ease-in-out;
+            box-shadow: 0 4px 0 #000; cursor: pointer;
+            animation: popIn 0.3s forwards; opacity: 0;
+        }
+        .action-button:active { transform: translateY(4px); box-shadow: 0 0 0 #000; }
+        
+        /* --- THEME & MODE STYLING --- */
+        /* Day Mode (Default) */
+        .theme-day { background-color: #dcdcdc; color: #000; }
+        .theme-day .main-container { background-color: #f8f8f8; }
+        .theme-day .poke-input { background-color: #fff; color: #000; }
+        .theme-day .poke-input::placeholder { color: #aaa; }
+        .theme-day .display-screen { background-color: #fff; }
+        .theme-day .pokeball-bg { background: linear-gradient(to bottom, #ff1111 48%, #000 48%, #000 52%, #fff 52%); }
+
+        /* Night Mode */
+        .theme-night { background-color: #0d1117; color: #c9d1d9; }
+        .theme-night .main-container { background-color: #161b22; }
+        .theme-night .poke-input { background-color: #010409; color: #c9d1d9; border-color: #30363d; }
+        .theme-night .poke-input::placeholder { color: #484f58; }
+        .theme-night .display-screen { background-color: #010409; border-color: #30363d;}
+        .theme-night .home-sprite { opacity: 0.4; }
+        .theme-night .pokeball-bg { background: linear-gradient(to bottom, #3b4cca 48%, #000 48%, #000 52%, #f0f0f0 52%); opacity: 0.15; }
+        
+        /* Accent Colors */
+        .theme-red .action-button { background-color: #ff1111; }
+        .theme-red .main-container { border-color: #c00d0d; }
+        .theme-red .toggle-button.active { background-color: #ff1111; }
+        .theme-red .home-sprite:hover { filter: drop-shadow(0 0 8px #ff1111); }
+
+        .theme-blue .action-button { background-color: #3b4cca; }
+        .theme-blue .main-container { border-color: #2d3a99; }
+        .theme-blue .toggle-button.active { background-color: #3b4cca; }
+        .theme-blue .home-sprite:hover { filter: drop-shadow(0 0 8px #3b4cca); }
+        
+        .action-button.mega { background-color: #f2a100; }
+
+        .toggle-button {
+            font-family: 'Press Start 2P', cursive;
+            border: 2px solid #000; padding: 0.5rem 1rem;
+            border-radius: 8px; background-color: #aaa;
+            color: #fff; margin: 0 0.25rem; cursor: pointer;
+            font-size: 0.65rem;
+        }
+
+        .display-screen {
+            /* UI FIX: Increased size */
+            min-height: 220px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; padding: 1rem;
+        }
+        .display-screen img {
+            /* UI FIX: Increased sprite size */
+            width: 128px; height: 128px;
+            image-rendering: pixelated;
+            animation: fadeIn 0.5s;
+        }
+        .display-screen h3 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.5rem; text-transform: capitalize;
+            margin-top: 0.5rem;
+        }
+        
+        #actionsContainer { min-height: 50px; }
+
+        .home-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem; animation: fadeIn 1s;
+        }
+        .home-sprite {
+            width: 64px; height: 64px;
+            image-rendering: pixelated;
+            opacity: 0.2; animation: pulse 4s infinite ease-in-out;
+            cursor: pointer; transition: all 0.2s ease-in-out;
+        }
+        .home-sprite:hover { opacity: 1; transform: scale(1.1); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse {
+            0% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.05); }
+            100% { opacity: 0.2; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="theme-red theme-day">
+    
+    <div class="background-container" id="background-animations"></div>
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md mx-auto">
+            <header class="text-center mb-4">
+                <h1 class="text-4xl" style="font-family: 'Press Start 2P', cursive;">Evo-Simulator</h1>
+            </header>
+            
+            <div class="text-center mb-2">
+                <button id="themeRed" class="toggle-button active">Red</button>
+                <button id="themeBlue" class="toggle-button">Blue</button>
+            </div>
+            <div class="text-center mb-6 space-x-2">
+                <button id="timeDay" class="toggle-button active">Day</button>
+                <button id="timeNight" class="toggle-button">Night</button>
+                <button id="megaToggle" class="toggle-button active">Mega: ON</button>
+            </div>
+
+            <main class="main-container">
+                <div class="p-4">
+                    <div class="mb-4">
+                         <input type="text" id="pokemonInput" list="pokemon-list" placeholder="Enter Pokémon..." class="w-full poke-input">
+                         <datalist id="pokemon-list"></datalist>
+                    </div>
+                    <div id="display" class="display-screen mb-4"></div>
+                    <div id="actionsContainer" class="grid grid-cols-2 gap-4"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const pokemonInput = document.getElementById('pokemonInput');
+        const display = document.getElementById('display');
+        const actionsContainer = document.getElementById('actionsContainer');
+        const themeRedButton = document.getElementById('themeRed');
+        const themeBlueButton = document.getElementById('themeBlue');
+        const timeDayButton = document.getElementById('timeDay');
+        const timeNightButton = document.getElementById('timeNight');
+        const megaToggleButton = document.getElementById('megaToggle');
+        const bodyEl = document.body;
+        const backgroundContainer = document.getElementById('background-animations');
+        const pokemonDatalist = document.getElementById('pokemon-list');
+
+        let fullEvolutionData = null;
+        let currentPokemon = null;
+        let timeOfDay = 'day';
+        let megaEvolutionsEnabled = true;
+        
+        function init() {
+            createFloatingPokeballs();
+            initHomeScreen();
+            populatePokemonList();
+        }
+
+        function createFloatingPokeballs() {
+            const ballCount = 10;
+            for (let i = 0; i < ballCount; i++) {
+                const ball = document.createElement('div');
+                ball.className = 'pokeball-bg';
+                ball.style.left = `${Math.random() * 100}vw`;
+                ball.style.animationDuration = `${20 + Math.random() * 15}s`;
+                ball.style.animationDelay = `${Math.random() * 20}s`;
+                backgroundContainer.appendChild(ball);
+            }
+        }
+
+        function initHomeScreen() {
+            const homeGrid = document.createElement('div');
+            homeGrid.className = 'home-grid';
+            const homePokemon = [
+                { id: 1, name: 'bulbasaur' }, { id: 4, name: 'charmander' },
+                { id: 7, name: 'squirtle' }, { id: 25, name: 'pikachu' },
+                { id: 39, name: 'jigglypuff' }, { id: 52, name: 'meowth' },
+                { id: 92, name: 'gastly' }, { id: 132, name: 'ditto' }
+            ];
+            
+            homePokemon.forEach((p, index) => {
+                const sprite = document.createElement('img');
+                sprite.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+                sprite.className = 'home-sprite';
+                sprite.style.animationDelay = `${index * 0.1}s`;
+                sprite.onclick = () => {
+                    pokemonInput.value = p.name;
+                    handleSearch();
+                };
+                homeGrid.appendChild(sprite);
+            });
+            display.innerHTML = '';
+            display.appendChild(homeGrid);
+        }
+
+        async function populatePokemonList() {
+            try {
+                const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1302');
+                const data = await response.json();
+                pokemonDatalist.innerHTML = data.results.map(p => `<option value="${p.name}"></option>`).join('');
+            } catch (err) {
+                console.error("Failed to populate Pokémon list:", err);
+            }
+        }
+
+        pokemonInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') handleSearch();
+        });
+        pokemonInput.addEventListener('input', (event) => {
+            const options = Array.from(pokemonDatalist.options).map(opt => opt.value);
+            if (options.includes(event.target.value.toLowerCase())) {
+                handleSearch();
+            }
+        });
+
+        themeRedButton.addEventListener('click', () => setTheme('red'));
+        themeBlueButton.addEventListener('click', () => setTheme('blue'));
+        timeDayButton.addEventListener('click', () => setTimeOfDay('day'));
+        timeNightButton.addEventListener('click', () => setTimeOfDay('night'));
+        megaToggleButton.addEventListener('click', toggleMegaEvolutions);
+        
+        function setTheme(theme) {
+            bodyEl.classList.remove('theme-red', 'theme-blue');
+            bodyEl.classList.add(theme === 'red' ? 'theme-red' : 'theme-blue');
+            themeRedButton.classList.toggle('active', theme === 'red');
+            themeBlueButton.classList.toggle('active', theme === 'blue');
+        }
+
+        function setTimeOfDay(time) {
+            timeOfDay = time;
+            bodyEl.classList.remove('theme-day', 'theme-night');
+            bodyEl.classList.add(time === 'day' ? 'theme-day' : 'theme-night');
+            timeDayButton.classList.toggle('active', time === 'day');
+            timeNightButton.classList.toggle('active', time === 'night');
+            if (currentPokemon) generateActionButtons();
+        }
+
+        function toggleMegaEvolutions() {
+            megaEvolutionsEnabled = !megaEvolutionsEnabled;
+            megaToggleButton.textContent = `Mega: ${megaEvolutionsEnabled ? 'ON' : 'OFF'}`;
+            megaToggleButton.classList.toggle('active', megaEvolutionsEnabled);
+            if (currentPokemon) generateActionButtons();
+        }
+
+        async function handleSearch() {
+            const pokemonName = pokemonInput.value.trim().toLowerCase();
+            if (!pokemonName) return;
+            
+            updateDisplay({ name: 'Loading...' });
+            actionsContainer.innerHTML = '';
+            currentPokemon = null;
+
+            try {
+                const baseData = await (await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)).json();
+                const speciesData = await (await fetch(baseData.species.url)).json();
+                
+                fullEvolutionData = speciesData.evolution_chain ? 
+                    await (await fetch(speciesData.evolution_chain.url)).json() : null;
+                
+                await updateState(pokemonName);
+
+            } catch (err) {
+                updateDisplay({ name: 'Not Found', error: true });
+            }
+        }
+
+        async function updateState(pokemonName) {
+            const pokemonData = await (await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)).json();
+            const speciesData = await (await fetch(pokemonData.species.url)).json();
+
+            currentPokemon = {
+                name: pokemonData.name,
+                sprite: pokemonData.sprites.front_default,
+                species: speciesData
+            };
+
+            updateDisplay(currentPokemon);
+            generateActionButtons();
+        }
+        
+        function findEvolutionsFor(name) {
+            if (!fullEvolutionData) return [];
+            let chain = fullEvolutionData.chain;
+            
+            function findInChain(currentChain, targetName) {
+                if (currentChain.species.name === targetName) {
+                    return currentChain;
+                }
+                for (const link of currentChain.evolves_to) {
+                    const found = findInChain(link, targetName);
+                    if (found) return found;
+                }
+                return null;
+            }
+
+            const currentLink = findInChain(chain, name);
+            return currentLink ? currentLink.evolves_to : [];
+        }
+
+        function generateActionButtons() {
+            actionsContainer.innerHTML = '';
+            let delay = 0;
+
+            const evolutions = findEvolutionsFor(currentPokemon.name);
+            const megaEvolutions = currentPokemon.species.varieties
+                .filter(v => !v.is_default && v.pokemon.name.includes('-mega'))
+                .map(v => v.pokemon);
+
+            if (evolutions) {
+                evolutions.forEach(evo => {
+                    const detail = evo.evolution_details[0];
+                    if (detail.time_of_day && detail.time_of_day !== timeOfDay) {
+                        return;
+                    }
+
+                    const button = document.createElement('button');
+                    button.className = 'action-button';
+                    button.textContent = formatEvolutionTrigger(evo.species.name, detail);
+                    button.onclick = () => updateState(evo.species.name);
+                    button.style.animationDelay = `${delay}s`;
+                    actionsContainer.appendChild(button);
+                    delay += 0.1;
+                });
+            }
+
+            if (megaEvolutionsEnabled && megaEvolutions) {
+                megaEvolutions.forEach(mega => {
+                    const button = document.createElement('button');
+                    button.className = 'action-button mega';
+                    button.textContent = 'Mega Evolve';
+                    button.onclick = async () => {
+                        const megaData = await (await fetch(mega.url)).json();
+                        updateDisplay({ name: megaData.name.replace(/-/g, ' '), sprite: megaData.sprites.front_default });
+                        actionsContainer.innerHTML = '<p class="col-span-2 text-center">Temporary Form</p>';
+                    };
+                    button.style.animationDelay = `${delay}s`;
+                    actionsContainer.appendChild(button);
+                    delay += 0.1;
+                });
+            }
+        }
+
+        function updateDisplay({ name, sprite, error = false }) {
+            if (error) {
+                display.innerHTML = `<h3 class="text-red-500">${name}</h3>`;
+            } else {
+                display.innerHTML = `
+                    <img src="${sprite || ''}" alt="${name}" class="${sprite ? '' : 'hidden'}">
+                    <h3>${name.replace(/-/g, ' ')}</h3>
+                `;
+            }
+        }
+
+        function formatEvolutionTrigger(pokemonName, detail) {
+            if (pokemonName === 'leafeon') return 'Use Leaf Stone';
+            if (pokemonName === 'glaceon') return 'Use Ice Stone';
+            if (!detail) return "Special";
+            
+            const trigger = detail.trigger.name.replace(/-/g, ' ');
+            let parts = [];
+            switch(trigger) {
+                case "level up": parts.push('Level Up'); break;
+                case "use item": parts.push(`Use ${detail.item.name.replace(/-/g, ' ')}`); break;
+                case "trade": parts.push('Trade'); break;
+                default: parts.push(trigger);
+            }
+            if (detail.min_happiness) parts.push('(Friendship)');
+            if (detail.known_move_type) parts.push('(Fairy Move)');
+            if (detail.time_of_day) parts.push(`(${detail.time_of_day})`);
+            return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+        }
+
+        init();
+    </script>
+</body>
+</html>
